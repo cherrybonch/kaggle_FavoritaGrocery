@@ -1,0 +1,217 @@
+---
+title: "hw 11"
+output: pdf_document
+urlcolor: blue
+---
+
+__Project title:__ Kaggle competition Corporacion Favorita Grocery Sales Forecasting
+
+__Team members:__ 
+
+1. Vladislav Fediukov
+2. Alina Vorontseva
+3. Anton Potapchuk
+
+
+## Exercise 1 Business understanding
+
+## Business goals
+
+__Background__
+
+The sponsor of the competition is Corporacion Favorita C.A. Corporacion Favorita, a large Ecuadorian-based grocery retailer. They operate hundreds of supermarkets, with over 200,000 different products on their shelves.
+
+Grocery stores are always having an issue with purchasing and sales forecasting. Predict a little over, and grocers are stuck with overstocked, perishable goods. Guess a little under, and popular items quickly sell out, leaving money on the table. This implies that increasing the accuracy of forecasting purchases will lead to increasing the company's income.
+
+Purchases in stores depend on a number of different factors, such as the location of the store, the price of oil, the schedule of public holidays and others. Thus, the developed model must take into account all these factors when forecasting sales.
+
+__Business goals__
+
+The purpose of the business is to find the optimal number of products that must be purchased, in order to maximize the profits of stores.
+
+__Business success criteria__
+
+The predicted number of purchases has a minimal deviation from the actual number of purchases.
+
+## Assessing situation
+
+__Inventory of resources__
+
+
+Developer team consists of three data mining specialists. There are the following datasets: purchase history, locations of stores, product descriptions, transaction descriptions, daily oil prices, holiday schedule. The developers have 3 laptops. They also have an access to the University of Tartu High-Performance Cluster. Programming languages R and Python can be used to develop the model. Such development environments as RStudio and PyCharm can be used.
+
+__Requirements, assumptions, and constraints__
+
+The end deadline of the competition is January 15, 2018. The project should be presented at January 8, 2018. A complete list of competition reuls can be found at the [link](https://www.kaggle.com/c/favorita-grocery-sales-forecasting/rules). All datasets are available in the [competition page](https://www.kaggle.com/c/favorita-grocery-sales-forecasting/data).
+
+__Risks and contingencies__
+
+There are next risks that may occur during the development process:
+
+1. Lack of computational resources(long queue in the HPC).
+2. Lack of the data.
+3. Low prediction accuracy.
+
+We can solve these problems in the following way:
+
+1. We can use some trial free online computational resources like Google Cloud, Amazon AWS, Microsoft Cloud Platform.
+2. We can find out additional data. For example, we can use data on the population density of cities, weather forecasting history.
+3. Training several models, using ensemble techniques.
+
+__Terminology__
+
+1. NWRMSLE - Normalized Weighted Root Mean Squared Logarithmic Error. 
+2. Random Forest - are a learning method for classification, regression tasks.
+3. Gradient boosting is a machine learning technique for regression and classification problems, which produces a prediction model in the form of an ensemble of weak prediction models, typically decision trees.
+4. Accuracy is the degree of closeness of measurements of a quantity to that quantity's true value.
+
+__Costs and benefits__
+
+All members of the development team have full free access to a high-performance cluster. Thus, the sum of the basic production costs is zero. Additional costs are possible in case of using third-party services, such as Google Cloud. Additional costs may be up to 300\$. The number of benefits can be 0, 5000, 10000, 15000\$.
+
+## Data-mining goals
+
+__Data-mining goals__
+
+There are several data-mining goals in this project. First of all, the team must develop several models for purchase forecasting. For each model, it is necessary to generate a report that contains a description of the model, a plot of the training accuracy per epoch, a matrix of average deviations in the forecast for each product. As the output data, it is necessary to predict the number of purchased goods. After the project is implemented, you need to create a presentation of the final product.
+
+__Data-mining success criteria__
+
+Submissions are evaluated on the Normalized Weighted Root Mean Squared Logarithmic Error (NWRMSLE). Thus, the loss function is:
+
+$NWRMSLE=\sqrt{ \frac{\sum_{i=1}^{n}w_i(ln(\check{y_i}+1) - ln(y_i+1))^2}{\sum_{i=1}^{n}w_i} }$. 
+
+NWRMSLE represents a deviation between the forecasted number of purchases and the actual number of purchases. So, the loss function should be minimized. Each submission should be evaluated automatically in Kaggle. The success criteria are to enter in the top 100.
+
+
+## Exercise 2 Data understanding
+
+**Gathering data**  
+* Outline data requirements  
+To predict sales of items, we need sales data for these items (date, store and quantity, ideally - user or at least separate orders), information about items (aisle, department), price, stock info, if items were on promotion and dates of it, store information, holiday or special events dates. It may be beneficiary to have store locations and compare them to density of population in that area. Also other outside factors, that can influence country's economy, like currency rate change or change in oil price.  
+* Verify data availability  
+As it is Kaggle competition, most of data is available on Kaggle website. Although, price information is not available. Also, sales information does not contain user or separate order information.
+* Define selection criteria
+All files contain relevant information and as they all are in csv format, so all of them should be processed and analyzed. 
+
+As some of files are really big, we will use data.table library 
+```{r,warning=FALSE,message=FALSE,results='hide'}
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(scales)
+holidays_events <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/holidays_events.csv")
+items <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/items.csv")
+oil <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/oil.csv")
+sample_submission <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/sample_submission.csv")
+stores <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/stores.csv")
+test <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/test.csv")
+train <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/train.csv",nrows = 100000)
+transactions <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/transactions.csv")
+```
+
+Train data is really big, so for now we will read only a small piece of it.
+
+**Describing data**
+
+* *train.csv, test.csv*
+These files contain sales data. Columns are date, store_nbr, item_nbr, id and onpromotion, and target column unit_sales (present only in train). Train data has 125497040 rows, test has 3370464 rows. The target unit_sales can be integer or float. Negative values of unit_sales represent returns of that particular item. The onpromotion column tells whether that item_nbr was on promotion for a specified date and store_nbr. The training data does not include rows for items that had zero unit_sales for a store/date combination. There is no information as to whether or not the item was in stock for the store on the date. Also, there are a small number of items seen in the training data that aren't seen in the test data.
+
+* *stores.csv*  
+Store metadata, including city (22 levels), state (16 levels), type (5 levels), and cluster (17 levels). Cluster is a grouping of similar stores. Dataset has 54 stores (one per row). It may be valuable to know on what principles those clusters were formed.
+
+* *items.csv*  
+Item metadata, including family (33 levels), class (337 levels), and perishable. Items marked as perishable have a score weight of 1; otherwise, the weight is 0. Dataset has 4100 items (one per row).  
+
+* *transactions.csv*  
+The count of sales transactions for each date, store_nbr combination. Only included for the training data timeframe. Dataset has 83488 rows.
+
+* *oil.csv*
+Daily oil price. Columns: date (from 2013-01-01 to 2017-08-31) and price. Includes values during both the train and test data timeframe. 1218 rows.
+
+* *holidays_events.csv* 
+Holidays and Events, with metadata. Columns: date, type ("Holiday", "Transfer", "Additional", "Bridge", "Work Day", "Event"), locale ("Local", "Regional",  "National"), locale name (24 locales), description and transferred (moved to another date by the government - boolean). 350 rows.
+
+
+
+**Exploring data**
+
+* *train.csv, test.csv*  
+?????????????????????????
+Choose 1 relatively popular item that was on promotion and plot its total sales in all stores from 2016-08-16 to 2017-08-15, setting color to show onpromotion.
+
+* *stores.csv*  
+Let's take a look at a number of stores in each city.
+```{r}
+store_count <- stores %>% 
+    group_by(state,city) %>% 
+    summarise(count=n()) %>%
+    arrange(desc(count))
+head(store_count,5)
+```
+We see that a third of all stores are in Quito, Pichincha. Also there are many stores in Guayaquil, Guayas. Other cities have not more than 3 stores. 14 cities have only 1 store.  
+Let's take a look at types of stores.
+```{r}
+ggplot(stores,aes(type)) + geom_bar()
+```
+The biggest type is D with 18 stores, and the smallest is E with only 4 stores.  
+Let's take a look at clusters of stores.
+```{r}
+ggplot(stores,aes(cluster)) + geom_bar()
+```
+The most frequent clusters are 3, 6 and 10, and there is only 1 element in clusters 5, 12, 16 and 17. On average, there are 3-4 stores in one cluster. If we group stores by type and cluster, we will see that all clusters contain stores of one type, except cluster 10, where there are 4 stores of type E (there are only 5 stores of type E overall), and one B-type and 1 D-type store. Clusters can unite stores from different cities.
+
+* *items.csv*  
+Let's take a look at family of items.
+```{r}
+ggplot(items,aes(family)) + geom_bar()+theme(axis.text.x=element_text(angle=60,hjust=1))
+```
+The main categories of items are Beverages, Cleaning, Grocery I and Produce. Class variable is a subcategory for family.  
+Let's see how many perishables are in each category.
+```{r}
+perishables_count <- items %>% 
+     filter(perishable==1)
+ggplot(perishables_count,aes(family)) + geom_bar() + theme(axis.text.x=element_text(angle=45,hjust=1))
+```
+As expected, top-3 categories with perishable products are Produce, Dairy and Bread/Bakery.
+
+* *transactions.csv*  
+On the 1st of January in 2013, 2915 and 2017 there was only 1 working store. In 2014 it was 2, and in 2016 it was 0.  
+Let's summarize daily data from 2016-08-16 to 2017-08-15 (1 year) from all stores and plot it.
+```{r}
+daily_sales <- transactions %>%
+    filter(as.Date(date) > as.Date("2016-08-15") & 
+               as.Date(date) <= as.Date("2017-08-15")) %>%
+    group_by(date) %>%
+    summarise(total_transactions = sum(transactions))
+
+ggplot(daily_sales, aes(as.Date(date), total_transactions)) + geom_point() + theme_bw() + scale_x_date(labels = date_format("%m-%Y"))
+```
+We see that sales rapidly increase before the New Year, and return to normal range after. There are several clear outliers - on 1st of January (when only 1 store was working), 1st of April (regional holiday) and 13th of May (day added to celebration of national holiday). The sales pattern is similar from year to year.
+
+* *oil.csv*  
+There are 43 days with missing data. Let's see the changes in daily oil price. 
+```{r}
+ggplot(oil, aes(as.Date(date), dcoilwtico)) + geom_point() + theme_bw() + scale_x_date(labels = date_format("%m-%Y"))
+```
+We see that changes are not stable and can have an effect on sales.
+
+
+## Exercise 3 Setting up and planning your project
+
+Link to presentation: https://docs.google.com/presentation/d/1veA_WQcfRRx7hQnE8qklmsLYceWzQGrPHrieSEWqcaI/edit#slide=id.g2a4c3a4a7d_16_0
+
+Detailed plan: 
+1)	Understand the data (data distribution, patterns, etc.) (Anton – 6 hours).
+2)	Visualize the data (data distribution, patterns, etc.) (Alina – 6 hours).
+3)	Make data preparation (cleaning, normalization, standardization) (Vlad – 6 hours).
+4)	Make feature engineering – everyone 3-5 hours.
+5)	Train model (RF, xgboost, NN, etc.) and evaluate – everyone X hours (depend on model).
+6)	Repeat step 4-5 until achieving some good results.
+
+
+
+
+
+
+
