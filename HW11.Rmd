@@ -100,14 +100,14 @@ library(data.table)
 library(dplyr)
 library(ggplot2)
 library(scales)
-holidays_events <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/holidays_events.csv")
-items <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/items.csv")
-oil <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/oil.csv")
-sample_submission <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/sample_submission.csv")
-stores <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/stores.csv")
-test <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/test.csv")
-train <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/train.csv",nrows = 100000)
-transactions <- fread("C:/OwnCloud/Kaggle/CorporacionFavorita/transactions.csv")
+holidays_events <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/holidays_events.csv")
+items <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/items.csv")
+oil <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/oil.csv")
+#sample_submission <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/sample_submission.csv")
+stores <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/stores.csv")
+#test <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/test.csv")
+train <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/train_last_year.csv")
+transactions <- fread("C:/Users/Vladislav/Documents/University/DM/kaggle_project/transactions.csv")
 ```
 
 Train data is really big, so for now we will read only a small piece of it.
@@ -137,8 +137,21 @@ Holidays and Events, with metadata. Columns: date, type ("Holiday", "Transfer", 
 **Exploring data**
 
 * *train.csv, test.csv*  
-?????????????????????????
-Choose 1 relatively popular item that was on promotion and plot its total sales in all stores from 2016-08-16 to 2017-08-15, setting color to show onpromotion.
+Let's plot total sales of 1 relatively popular item that was on promotion from 2016-08-16 to 2017-08-15.
+```{r}
+temp <- train %>%
+  group_by(item_nbr) %>%
+  count(n = n())
+
+most_popular <- temp$item_nbr[order(temp$n, decreasing = TRUE)[1]]
+
+train_filtered <- train %>%
+  filter(item_nbr == most_popular)
+
+aggregated <- aggregate(unit_sales ~ date, data = train_filtered, FUN = sum)
+aggregated$date <- as.Date(as.character(aggregated$date))
+ggplot(aggregated, aes(date, unit_sales)) + geom_point() + scale_x_date(labels = date_format("%m-%Y"))
+```
 
 * *stores.csv*  
 Let's take a look at a number of stores in each city.
